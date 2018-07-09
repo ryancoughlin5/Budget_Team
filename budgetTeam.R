@@ -106,12 +106,15 @@ colnames(players)[26] <- 'POS'
 players_pitch <- subset(players, POS == 'P')
 players_nonpitch <- subset(players, POS != 'P')
 
+# join the batting and fielding data frames with the non pitcher dataframe; keeping only the matching entries
 batting <- semi_join(batting, players_nonpitch[, c('playerID', 'salary', 'POS')], by = 'playerID')
 fielding <- semi_join(fielding, players_nonpitch[, c('playerID', 'salary', 'POS')], by = 'playerID')
 identical(batting[['playerID']], fielding[['playerID']])
 
+# join the pitching data frames with the  pitcher dataframe; keeping only the matching entries
 pitching <- semi_join(pitching, players_pitch[, c('playerID', 'salary')], by = 'playerID')
 
+# for loop to create the Innings Pitched per Start variable
 pitching$IP_Start <- NA
 for (i in 1:nrow(pitching)) {
   if (pitching$GS[i] >= 3) {
@@ -123,6 +126,7 @@ for (i in 1:nrow(pitching)) {
 # see what the average innings pitched is for starters
 mean(pitching$IP_Start, na.rm = TRUE)
 
+# turn P into RP for a reliever, SP for a starter, or NA if it doesn't match the criteria
 pitching$POS <- NA
 for (i in 1:nrow(pitching)) {
   if ((pitching$GS[i] <= 3) && (pitching$G[i] >= 25)) {
@@ -132,11 +136,14 @@ for (i in 1:nrow(pitching)) {
   }else {pitching$POS[i] <- NA}
 }
 
+# get rid of any NA in POS
 pitching <- pitching[complete.cases(pitching$POS), ]
 
+# join the batting and pitching data frames with players
 players <- left_join(x = players, y = pitching, by = 'playerID')
 players <- left_join(x = players, y = batting, by = 'playerID')
 
+# combine the positions of the position players with the positions of the pitchers into one column
 players$POS_Combined <- NA
 for (i in 1:nrow(players)) {
   if (!is.na(players$POS.y.y[i])) {
@@ -147,26 +154,32 @@ for (i in 1:nrow(players)) {
   }
 }
 
+# get rid of any NA in the combined column
 players <- players[complete.cases(players$POS_Combined), ]
 
-
+# reorder/remove unneccessary columns
 players <- players[c(1, 25, 80, 19, 20, 29)]
 batting <- batting[c(1, 22, 4, 6, 13, 16, 21, 18)]
 fielding <- fielding[c(1, 2, 7, 8, 6)]
 pitching <- pitching[c(1, 29, 14, 11, 10)]
 
+# rename POS_Combined to POS
 colnames(players)[3] <- 'POS'
 
+# OPS formula
 batting$OPS <- NA
 batting$OPS <- round(((batting$H+batting$BB+batting$HBP)/(batting$AB+batting$BB+batting$SF+batting$HBP) + batting$TB/batting$AB),
                      3)
 
+# range factor formula
 fielding$RF <- NA
 fielding$RF <- round(((fielding$PO+fielding$A)*9)/(fielding$InnOuts/3), 3)
 
+# WHIP formula
 pitching$WHIP <- NA
 pitching$WHIP <- round((pitching$BB+pitching$H)/(pitching$IPouts/3), 3)
 
+# join remaining data frames and keep only the specified column from y
 players <- left_join(players, batting[c('playerID', 'OPS')], by = 'playerID')
 players <- left_join(players, fielding[c('playerID', 'RF')], by = 'playerID')                  
 players <- left_join(players, pitching[c('playerID', 'WHIP')], by = 'playerID')
